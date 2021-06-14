@@ -253,6 +253,8 @@ def lambda_handler(): # pragma: no cover
             client.start_db_instance(
                 DBInstanceIdentifier=instance
                 )
+
+    ###Need to fix this
             
     elif (len(stop_databases)) > 0:
         for instance in stop_databases:
