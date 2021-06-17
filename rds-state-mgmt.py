@@ -151,7 +151,7 @@ def check_configured_time(instance, time_type, minute_value):
         return '45'
 
     return minute_value
-
+# This takes all the instances and filters them to see if they fit the requirement to be started. 
 def start_db():
     start_dbs = set({})
     for node in instances:
@@ -171,6 +171,8 @@ def start_db():
                         start_dbs.add(node)
     return start_dbs
 
+
+## This takes all the instances and filters them to see if it checks all the requirements. If it passes it adds the instances to a list to be stopped
 def stop_db():
     stop_dbs = set({})
     for node in instances:
@@ -190,8 +192,9 @@ def stop_db():
                         stop_dbs.add(node)
     return stop_dbs
 
+##Check to see if the event matches the scheduled time
 def check_event_time(instance, current_day_of_week, current_hour, hour_phase, time_chunk, time_type): # pylint: disable=too-many-arguments
-    ''' Check to see if the event matches the scheduled time '''
+    Check to see if the event matches the scheduled time
     time_split = time_chunk.strip().split(' ')
     if len(time_split) > 1:
         
@@ -224,7 +227,8 @@ def check_event_time(instance, current_day_of_week, current_hour, hour_phase, ti
 
     return False
 
-def lambda_handler(): # pragma: no cover
+##Handler for the lambda to call the script
+def lambda_handler(event, context): # pragma: no cover
     ''' Lambda handler '''
 
     timezone = pytz.timezone(environ.get('STATE_MGMT_TIMEZONE') or 'UTC')
@@ -246,25 +250,42 @@ def lambda_handler(): # pragma: no cover
 
     stop_databases = stop_db()
     start_databases = start_db()
-    print(stop_databases)
-
+    failure_count = 0 
+    
     if (len(start_databases)) > 0:
-        for instance in start_databases:
-            client.start_db_instance(
-                DBInstanceIdentifier=instance
-                )
+        for database in start_databases:
+            try:
+                logger.info('Stopping instance', extra={
+                'Database_id': database
+                })
+                client.start_db_instance(
+                    DBInstanceIdentifier=instance
+                    )
+            except:
+                logger.error('Failed to stop DataBase', extra={
+                    'DataBase_id': database
+                }, exc_info=ex)
+                failure_count += 1
+                
 
-    ###Need to fix this
             
-    elif (len(stop_databases)) > 0:
-        for instance in stop_databases:
-            client.stop_db_instance(
-                DBInstanceIdentifier=instance
-                )
+    if (len(stop_databases)) > 0:
+        for database in stop_databases:
+            try:
+                logger.info('Stopping Database', extra={
+                'Database_id': database
+                })
+                client.stop_db_instance(
+                    DBInstanceIdentifier=instance
+                    )
+            except:
+                logger.error('Failed to stop DataBase', extra={
+                    'DataBase_id': database
+                }, exc_info=ex)
+                failure_count += 1
 
-    elif failure_count:
-        print('hi')
+
+    if failure_count:
         raise RecoveredError(f'{failure_count} instance control failures occurred')
 
 
-lambda_handler()
